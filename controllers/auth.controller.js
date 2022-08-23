@@ -229,31 +229,55 @@ export const resendOTPVerificationCode = async(req, res) =>{
     }
 }
 export const login = async (req, res)=>{
+  
+    let {email, password} = req.body
+  
+    
+    if(email == "" || password ==""){
+        res.json({
+            status: "FAILED",
+            message: "Empty credentials supplied!!!"
+        })
 
-    try {
-        const {email, password} = req.body
-        let user = await User.findOne({email})
-        if(!user) 
-        
-            return res.status(403).json({msg: "Usuario y/o Contraseña se encuentra incorrecta"})
+    }else{
+        User.find({email})
+            .then(data =>{
+                if(data.length){
+                    const hashedPassword = data[0].password;
+                    bcrypt.compare(password, hashedPassword).then(result =>{
+                        if(result){
+                            res.json({
+                                status: "SUCCESS",
+                                message: "Signin successful",
+                                data: data
+                            })
+                        }else{
+                            res.json({
+                                status: "FAILED",
+                                message: "Invalid password entered",
+                            })
+                        }
+                    })
+                    .catch(err =>{
+                        res.json({
+                            status: "FAILED",
+                            message: "An error ocurred while comparing passwords",
+                        })
+                    })
+                }else{
+                    res.json({
+                        status: "FAILED",
+                        message: "Invalid credentials entered",
+                    })
+                }
+            })
 
-        if (!user.verified) 
-            return res.status(403).json({msg: "Favor confirmar su cuenta para poder ingresar al sistema!!"})
-           
-
-        const respuestaPassword = await user.comparePassword(password)
-        if(!respuestaPassword)
-            return res.status(403).json({msg: "Usuario y/o Contraseña se encuentra incorrecta"})  
-        
-            const { token, expiresIn } = generateToken(user.id);
-            generateRefreshToken(user.id, res); 
-
-            return res.json({user, token, expiresIn});              
-       
-            
-    } catch (error) {
-        console.log(error)
-        return res.status(500).json({error: "Error de Servidor favor comunicarse con el Administrador"})
+            .catch(err=>{
+                res.json({
+                    status: "FAILED",
+                    message: "An error occurred while checking for existing user",
+                })
+            })
     }
     
 }
