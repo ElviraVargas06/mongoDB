@@ -5,8 +5,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 
 import authRouter from "./routes/auth.route.js"
-import linkRouter from "./routes/link.route.js";
-import redirectRouter from "./routes/redirect.route.js";
+
 
 
 const app = express();
@@ -31,14 +30,12 @@ app.use(
 app.use(express.json());
 app.use(cookieParser());
 
-// ejemplo back redirect (opcional)
-app.use("/", redirectRouter);
 
 //Recibe datos JSON
 app.use(express.json());
 
 app.use("/api/v1/auth",authRouter)
-app.use("/api/v1/links", linkRouter);
+
 
 // routes -------------------------------------------
 /*app.get('/', (req, res)=>{

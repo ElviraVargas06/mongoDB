@@ -32,23 +32,18 @@ export const register = async (req, res) => {
     if(nombre == "" || email == "" || password ==""){
         res.json({
             status: "FAILED",
-            message: "Empty input fields!!!"
+            message: "Los campos se encuentran vacio!!!"
         })
-    }else if(!/^[a-zA-Z]*$/.test(nombre)){
-        res.json({
-            status: "FAILED",
-            message: "Invalid nombre entered",
-
-        })
+    
     }else if (!/^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/.test(email)){
         res.json({
             status: "FAILED",
-            message: "Invalid email entered",
+            message: "Correo electrónico ingresado es invalido",
         })
-    }else if(password.length < 8 ){
+    }else if(password.length < 6 ){
         res.json({
             status:"FAILED",
-            message: "password too short!!",
+            message: "La contraseña debe ser mayor a 6 caracteres!!",
         })
     }else{
         User.find({email})
@@ -57,7 +52,7 @@ export const register = async (req, res) => {
                 if(result.length){
                     res.json({
                         status: "FAILED",
-                        message: "User with  thw provided email already exist",
+                        message: "El usuario con el correo electrónico proporcionado ya existe",
                     })
                 }else{
                     const saltRounds = 10;
@@ -79,7 +74,7 @@ export const register = async (req, res) => {
                                     console.log(err);
                                     res.json({
                                         status: "FAILED",
-                                        message: "An error occurred while saving user account!"
+                                        message: "Ocurrió un error al momento de guardar la cuenta de usuario!"
                                     })
                                 })
                         })
@@ -87,7 +82,7 @@ export const register = async (req, res) => {
                         .catch((err) =>{
                             res.json({
                                 status: "FAILED",
-                                message: "An error occurred while hashing password!!",
+                                message: "Ocurrió un error al momento de codificar la contraseña!!",
                             })
                         })
 
@@ -98,7 +93,7 @@ export const register = async (req, res) => {
         console.log(err);
         res.json({
             status: "FAILED",
-            message: "An error ocurred while checking for existing user!",
+            message: "Ocurrió un error al verificar el usuario existente!",
         })
     })
 };
@@ -140,7 +135,7 @@ export const confirmarCuenta = async ({_id, email},res) =>{
 
         res.json({
             status: "PENDING",
-            message: "Verification otp email sent",
+            message: "El código OTP fue enviado a su correo electronico!!",
             data:{
                 userId: _id,
                 email,
@@ -161,9 +156,11 @@ export const confirmarCuenta = async ({_id, email},res) =>{
 
 export const verifyOTP = async(req, res) =>{
     try {
+
+        
        let{userId, otp} = req.body;
        if(!userId || !otp){
-        throw Error("Empty otp details are not allowed")
+        throw Error("El código OTP no puede ir vacio!!!")
        }else{
         const UserOTPVerificationRecords= await VerificarOTP.find({
             userId,
@@ -171,7 +168,7 @@ export const verifyOTP = async(req, res) =>{
 
         if(UserOTPVerificationRecords.length <= 0){
             throw new Error(
-                "Account record doesnot exist or has been verified already. Please sign up or log in."
+                "El registro de la cuenta no existe y/o ya ha sido verificado. favor registrese o inicie sesión"
             )
         }else{
 
@@ -180,23 +177,22 @@ export const verifyOTP = async(req, res) =>{
 
             if(expiresAt < Date.now()){
                 await verifyOTP.deleteMany({userId})
-                throw new Error("Code has expired. Please request again.")
+                throw new Error("El código ha caducado. Por favor solicite uno nuevo.")
             
         }else{
 
             
             const validOTP = await bcrypt.compare(otp, hashedOTP)
             if(!validOTP){
-                throw new Error("Invalid code passed. Check your inbox.")
+                throw new Error("El Código OTP es invalido, favor verificar su correo electronico.")
             }else{
                await User.updateOne({_id:userId}, {verified: true})
                await VerificarOTP.deleteMany({userId})
+               
                res.json({
                     status: "VERIFIED",
-                    message: "User email verified successfull",
+                    message: "Correo electronico del usuario verificado exitosamente",
                })
-            
-
             }
         }
         }
@@ -217,7 +213,7 @@ export const resendOTPVerificationCode = async(req, res) =>{
     try{
         let{userId, email} = req.body;
         if(!userId || !email){
-            throw Error("Empty user details are not allowed")
+            throw Error("El código OTP no puede ir vacio!!!")
         }else{
             await VerificarOTP.deleteMany({userId})
             confirmarCuenta({_id: userId, email}, res)
@@ -236,7 +232,7 @@ export const login = async (req, res)=>{
     if(email == "" || password ==""){
         res.json({
             status: "FAILED",
-            message: "Empty credentials supplied!!!"
+            message: "Las credenciales se encuentran vacias, favor suministrarla!!!"
         })
 
     }else{
@@ -248,26 +244,26 @@ export const login = async (req, res)=>{
                         if(result){
                             res.json({
                                 status: "SUCCESS",
-                                message: "Signin successful",
+                                message: "Inicio de sesión exitoso",
                                 data: data
                             })
                         }else{
                             res.json({
                                 status: "FAILED",
-                                message: "Invalid password entered",
+                                message: "Usuario y/o contraseña se encuentran invalida",
                             })
                         }
                     })
                     .catch(err =>{
                         res.json({
                             status: "FAILED",
-                            message: "An error ocurred while comparing passwords",
+                            message: "Las contraseñas no se pueden comparar",
                         })
                     })
                 }else{
                     res.json({
                         status: "FAILED",
-                        message: "Invalid credentials entered",
+                        message: "Usuario y/o contraseña se encuentran invalida",
                     })
                 }
             })
@@ -275,47 +271,12 @@ export const login = async (req, res)=>{
             .catch(err=>{
                 res.json({
                     status: "FAILED",
-                    message: "An error occurred while checking for existing user",
+                    message: "Ocurrió un error al verificar al usuario",
                 })
             })
     }
     
 }
-
-export const refresh = (req, res) => {
-    try {
-        const { token, expiresIn } = generateToken(req.uid);
-        return res.json({ token, expiresIn });
-    } catch (error) {
-        console.log(error);
-        return res.status(500).json({ error: "Error de Servidor favor comunicarse con el Administrador" });
-    }
-};
-
-
-export const validarTokenUsuario = async (req, res = response ) => {
-
-    // Generar el JWT
-    const token = await generateToken( req.uid);
-    
-    res.json({
-        usuario: req.usuario,
-        token: token,
-    })
-
-}
-
-export const infoUser = async (req, res) => {
-try {
-    const user = await User.findById(req.uid).lean();
-    delete user.password;
-    return res.json({ user });
-} catch (error) {
-    console.log(error);
-    return res.status(403).json({ error: error.message });
-}
-};
-
 
 
 
