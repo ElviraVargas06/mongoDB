@@ -1,27 +1,17 @@
 import { User } from "../models/User.js";
 import { VerificarOTP } from "../models/VerificarOTP.js";
-import bcrypt from "bcryptjs";
-import "dotenv/config";
+import bcryptjs from "bcryptjs";
 
-import nodemailer from "nodemailer";
-
-let transporter = nodemailer.createTransport({
-  host: "smtp.mailtrap.io",
-  port: 2525,
-  auth: {
-    user: process.env.USERMAIL,
-    pass: process.env.PASSEMAIL,
-  },
-});
-
-transporter.verify((error, success) => {
-  if (error) {
-    console.log(error);
-  } else {
-    console.log("Ready for messages");
-    console.log(success);
-  }
-});
+import {
+  generateToken,
+  generateRefreshToken,
+  generateOTP,
+} from "../utils/tokenManager.js";
+import {
+  createTrans,
+  generateEmailTemplate,
+  confirmacionEmailTemplate,
+} from "../utils/mail.js";
 
 export const register = async (req, res) => {
   let { nombre, email, password } = req.body;
@@ -210,54 +200,43 @@ export const resendOTPVerificationCode = async (req, res) => {
   }
 };
 export const login = async (req, res) => {
-  let { email, password } = req.body;
+  const { email, password } = req.body;
 
-  if (email == "" || password == "") {
-    res.json({
-      status: "FAILED",
-      message: "Las credenciales se encuentran vacias, favor suministrarla!!!",
-    });
-  } else {
-    User.find({ email })
-      .then((data) => {
-        if (data.length) {
-          const hashedPassword = data[0].password;
-          bcrypt
-            .compare(password, hashedPassword)
-            .then((result) => {
-              if (result) {
-                res.json({
-                  status: "SUCCESS",
-                  message: "Inicio de sesión exitoso",
-                  data: data,
-                });
-              } else {
-                res.json({
-                  status: "FAILED",
-                  message: "Usuario y/o contraseña se encuentran invalida",
-                });
-              }
-            })
-            .catch((err) => {
-              res.json({
-                status: "FAILED",
-                message: "Las contraseñas no se pueden comparar",
-              });
-            });
-        } else {
-          res.json({
-            status: "FAILED",
-            message: "Usuario y/o contraseña se encuentran invalida",
-          });
-        }
-      })
-
-      .catch((err) => {
-        res.json({
-          status: "FAILED",
-          message: "Ocurrió un error al verificar al usuario",
-        });
+  try {
+    const user = await User.findOne({ email });
+    if (!user)
+      return res.status(404).json({
+        message:
+          "El Correo y/o Contraseña no se encuentra en la Base de Datos...!",
       });
+
+    if (!user.verified)
+      return res.status(403).json({
+        message: "Favor confirmar su cuenta para poder ingresar al sistema!!",
+      });
+    const validPass = await bcryptjs.compareSync(password, user.password);
+    if (!validPass)
+      return res.status(404).json({
+        message:
+          "El Correo y/o Contraseña no se encuentra en la Base de Datos...!",
+      });
+
+    //Generar el token JWT
+    const { token, expiresIn } = generateToken(user.id);
+    generateRefreshToken(user.id, res);
+
+    return res.json({
+      status: "VERIFIED",
+      message: "Ha ingresado a su cuenta exitosamente",
+      user,
+      token,
+      expiresIn,
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      error: "Error de Servidor favor comunicarse con el Administrador",
+    });
   }
 };
 
