@@ -42,7 +42,7 @@ export const register = async (req, res) => {
           });
         } else {
           const saltRounds = 10;
-          bcrypt
+          bcryptjs
             .hash(password, saltRounds)
             .then((hashedPassword) => {
               const newUser = new User({
@@ -134,51 +134,44 @@ export const confirmarCuenta = async ({ _id, email }, res) => {
 //Verificar el OTP enviado al correo
 
 export const verifyOTP = async (req, res) => {
+  const { otp } = req.body;
   try {
-    let { userId, otp } = req.body;
-    if (!userId || !otp) {
-      throw Error("El código OTP no puede ir vacio!!!");
-    } else {
-      const UserOTPVerificationRecords = await VerificarOTP.find({
-        userId,
-      });
+    if (!otp)
+      return res
+        .status(403)
+        .json({ message: "Lo sentimos, El código OTP no puede ir vacio" });
 
-      if (UserOTPVerificationRecords.length <= 0) {
-        throw new Error(
-          "El registro de la cuenta no existe y/o ya ha sido verificado. favor registrese o inicie sesión"
-        );
-      } else {
-        const { expiresAt } = UserOTPVerificationRecords[0];
-        const hashedOTP = UserOTPVerificationRecords[0].otp;
+    const user = await User.findOne({ otp });
 
-        if (expiresAt < Date.now()) {
-          await verifyOTP.deleteMany({ userId });
-          throw new Error(
-            "El código ha caducado. Por favor solicite uno nuevo."
-          );
-        } else {
-          const validOTP = await bcrypt.compare(otp, hashedOTP);
-          if (!validOTP) {
-            throw new Error(
-              "El Código OTP es invalido, favor verificar su correo electronico."
-            );
-          } else {
-            await User.updateOne({ _id: userId }, { verified: true });
-            await VerificarOTP.deleteMany({ userId });
+    if (!user)
+      return res
+        .status(403)
+        .json({ message: "Lo sentimos, No existe este Usuario" });
 
-            res.json({
-              status: "VERIFIED",
-              message: "Correo electronico del usuario verificado exitosamente",
-            });
-          }
-        }
-      }
-    }
-  } catch (error) {
-    res.json({
-      status: "FAILED",
-      message: error.message,
+    //Actualiza el usuario e indica que ya se encuentra confirmada la cuenta
+    await user.update({ verified: true });
+
+    // Borra el otp porque ya se confirmó el codigó
+    user.otp = null;
+
+    await user.save();
+
+    //Enviar correo electronico la confirmacion de la cuenta al registrar el OTP
+
+    const transporter = createTrans();
+    await transporter.sendMail({
+      from: '"Fred Foo 👻" <foo@example.com>',
+      to: user.email,
+      subject: "verifique cuenta de correo",
+      html: confirmacionEmailTemplate(
+        "Correo verificado exitosamente!!!",
+        "Gracias por hacer parte de nosotros"
+      ),
     });
+
+    return res.json({ message: "Cuenta Verificada puede iniciar sesion" });
+  } catch (error) {
+    return res.json({ msg: error.message });
   }
 };
 

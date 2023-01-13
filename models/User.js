@@ -1,37 +1,29 @@
-import bcryptjs from "bcryptjs"
-import mongoose from "mongoose"
-
+import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema({
+  nombre: {
+    type: String,
+    required: true,
+  },
 
-    nombre:{
-        type: String,
-        required: true,
-            
-    },
+  email: {
+    type: String,
+    required: true,
+    trim: true,
+    unique: true,
+    lowercase: true,
+    index: { unique: true },
+  },
+  password: {
+    type: String,
+    required: true,
+  },
 
-    email: {
-        type: String,
-        required: true,
-        trim: true,
-        unique: true,
-        lowercase: true,
-        index: {unique: true}   
+  verified: {
+    type: Boolean,
+    default: false,
+    required: true,
+  },
+});
 
-    },
-    password:{
-        type: String,
-        required: true
-    },
-
-
-    verified: {
-        type: Boolean,
-        default: false,
-        required: true
-    },
-
-    
-})
-
-export const User = mongoose.model("User", userSchema)
+export const User = mongoose.model("User", userSchema);
